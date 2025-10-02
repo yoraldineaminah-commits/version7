@@ -1,8 +1,9 @@
 import React from 'react';
 import { useState, useRef, useEffect } from 'react';
-import { Bell, Search, ChevronDown, CheckCircle, AlertTriangle, Info } from 'lucide-react';
+import { Bell, Search, ChevronDown, CheckCircle, AlertTriangle, Info, LogOut, User } from 'lucide-react';
 import { mockNotifications } from '../../data/mockData';
 import SearchModal from '../Modals/SearchModal';
+import { useAuth } from '../../contexts/AuthContext';
 
 export default function Header() {
   const [showNotifications, setShowNotifications] = useState(false);
@@ -10,6 +11,28 @@ export default function Header() {
   const [showProfile, setShowProfile] = useState(false);
   const unreadCount = mockNotifications.filter(n => !n.read).length;
   const notificationRef = useRef<HTMLDivElement>(null);
+  const { authUser, signOut } = useAuth();
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
+  };
+
+  const getRoleLabel = (role: string) => {
+    switch (role) {
+      case 'responsable_rh':
+        return 'Responsable RH';
+      case 'encadreur':
+        return 'Encadreur';
+      case 'stagiaire':
+        return 'Stagiaire';
+      default:
+        return 'Utilisateur';
+    }
+  };
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -129,33 +152,37 @@ export default function Header() {
 
           {/* Profile dropdown */}
           <div className="relative">
-            <button 
+            <button
               onClick={() => setShowProfile(!showProfile)}
               className="flex items-center space-x-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg px-3 py-2 transition-all duration-200"
             >
-              <img
-                src="https://images.pexels.com/photos/1043471/pexels-photo-1043471.jpeg?auto=compress&cs=tinysrgb&w=40&h=40&dpr=1"
-                alt="Profile"
-                className="h-8 w-8 rounded-full object-cover"
-              />
+              <div className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
+                <User className="h-5 w-5 text-white" />
+              </div>
               <div className="text-sm hidden md:block">
-                <div className="font-medium text-gray-900 dark:text-white">Utilisateur Admin</div>
-                <div className="text-gray-500 dark:text-gray-400">Administrateur</div>
+                <div className="font-medium text-gray-900 dark:text-white">
+                  {authUser ? `${authUser.profile.prenom} ${authUser.profile.nom}` : 'Utilisateur'}
+                </div>
+                <div className="text-gray-500 dark:text-gray-400">
+                  {authUser ? getRoleLabel(authUser.role) : 'Rôle'}
+                </div>
               </div>
               <ChevronDown className="h-4 w-4 text-gray-400 dark:text-gray-500" />
             </button>
-            
+
             {showProfile && (
               <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-30">
                 <div className="py-1">
-                  <button className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
+                  <button className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2">
+                    <User className="h-4 w-4" />
                     Mon profil
                   </button>
-                  <button className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
-                    Paramètres
-                  </button>
                   <hr className="my-1 border-gray-200 dark:border-gray-700" />
-                  <button className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100 dark:hover:bg-gray-700">
+                  <button
+                    onClick={handleSignOut}
+                    className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+                  >
+                    <LogOut className="h-4 w-4" />
                     Se déconnecter
                   </button>
                 </div>
