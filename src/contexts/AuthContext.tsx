@@ -1,10 +1,9 @@
 import { createContext, useContext, useEffect, useState } from 'react';
-import { User } from '@supabase/supabase-js';
-import { supabase } from '../lib/supabase';
-import { UserProfile, UserRole, AuthUser } from '../types/auth';
+import { AuthUser } from '../types/auth';
+import { mockUsers } from '../data/mockData';
 
 interface AuthContextType {
-  user: User | null;
+  user: { id: string; email: string } | null;
   authUser: AuthUser | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
@@ -13,61 +12,62 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const AUTH_STORAGE_KEY = 'auth_user_id';
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<{ id: string; email: string } | null>(null);
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchUserData = async (userId: string) => {
-    try {
-      const [profileResult, roleResult] = await Promise.all([
-        supabase.from('profiles').select('*').eq('id', userId).maybeSingle(),
-        supabase.from('user_roles').select('role').eq('user_id', userId).maybeSingle(),
-      ]);
-
-      if (profileResult.data && roleResult.data) {
+  useEffect(() => {
+    const storedUserId = localStorage.getItem(AUTH_STORAGE_KEY);
+    if (storedUserId) {
+      const foundUser = mockUsers.find(u => u.id === storedUserId);
+      if (foundUser) {
+        setUser({ id: foundUser.id, email: foundUser.email });
         setAuthUser({
-          profile: profileResult.data as UserProfile,
-          role: roleResult.data.role as UserRole,
+          profile: foundUser.profile,
+          role: foundUser.role,
         });
       }
-    } catch (error) {
-      console.error('Error fetching user data:', error);
     }
-  };
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchUserData(session.user.id);
-      }
-      setLoading(false);
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      (async () => {
-        setUser(session?.user ?? null);
-        if (session?.user) {
-          await fetchUserData(session.user.id);
-        } else {
-          setAuthUser(null);
-        }
-      })();
-    });
-
-    return () => subscription.unsubscribe();
+    setLoading(false);
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) throw error;
+    return new Promise<void>((resolve, reject) => {
+      setTimeout(() => {
+        const foundUser = mockUsers.find(
+          u => u.email === email && u.password === password
+        );
+
+        if (!foundUser) {
+          reject(new Error('Email ou mot de passe incorrect'));
+          return;
+        }
+
+        const userAuth = { id: foundUser.id, email: foundUser.email };
+        setUser(userAuth);
+        setAuthUser({
+          profile: foundUser.profile,
+          role: foundUser.role,
+        });
+
+        localStorage.setItem(AUTH_STORAGE_KEY, foundUser.id);
+        resolve();
+      }, 500);
+    });
   };
 
   const signOut = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) throw error;
-    setAuthUser(null);
+    return new Promise<void>((resolve) => {
+      setTimeout(() => {
+        setUser(null);
+        setAuthUser(null);
+        localStorage.removeItem(AUTH_STORAGE_KEY);
+        resolve();
+      }, 300);
+    });
   };
 
   return (
